@@ -1,0 +1,45 @@
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chat-widget-enter {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.chat-widget-exit {
+  animation: fadeOut 0.3s ease-out;
+}
+
+.chat-widget-expand {
+  transition:
+    width 0.3s ease-out,
+    height 0.3s ease-out;
+}
+
+.chat-widget-shrink {
+  transition:
+    width 0.3s ease-out,
+    height 0.3s ease-out;
+}
+
+.message-enter {
+  animation: fadeIn 0.3s ease-out;
+}
