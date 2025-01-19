@@ -8,11 +8,13 @@ import {
   Shrink,
   X,
 } from "lucide-react";
+import DOMPurify from "dompurify";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { validateInputMessage } from "@/lib/utils";
 import "@/styles/chatbot.css";
 
 interface Message {
@@ -25,29 +27,43 @@ export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [isExpand, setIsExpand] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const handleInputChange = (e: { target: HTMLTextAreaElement }) => {
-    setInput(e.target.value);
-  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (input.trim() === "") return;
+    const form = e.target as HTMLFormElement;
+    const userMessage =
+      (form.elements.namedItem("message") as HTMLTextAreaElement)?.value.trim();
+
+    if (!userMessage) return;
+
+    form.reset();
 
     setMessages((prevMessages) => [
       ...prevMessages,
       {
         id: Date.now(),
-        text: input,
+        text: userMessage,
         sender: "user",
       },
     ]);
 
-    const userMessage = input;
-    setInput("");
+    const { isValid, error } = validateInputMessage(userMessage);
+    if (!isValid && error) {
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        {
+          id: Date.now(),
+          text: error,
+          sender: "bot",
+        },
+      ]);
+
+      return;
+    }
+
+    const sanitizedInput = DOMPurify.sanitize(userMessage);
 
     try {
       const history = messages.map((message) => ({
@@ -57,17 +73,15 @@ export default function Chatbot() {
 
       history.push({
         role: "user",
-        parts: [{ text: userMessage }],
+        parts: [{ text: sanitizedInput }],
       });
-
-      console.log("🌽 history", history);
 
       const response = await fetch("http://localhost:8000/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ input: userMessage, history }),
+        body: JSON.stringify({ input: sanitizedInput, history }),
       });
 
       if (!response.ok) {
@@ -136,10 +150,10 @@ export default function Chatbot() {
       {isOpen
         ? (
           <div
-            className={`bg-white rounded-lg shadow-xl flex flex-col chat-widget-enter ${
+            className={`bg-white rounded-lg shadow-xl flex flex-col chat-widget-enter  ${
               isExpand
-                ? "chat-widget-expand w-[600px] h-[700px]"
-                : "chat-widget-shrink w-[400px] h-[500px]"
+                ? "chat-widget-expand w-[90vw] h-[96vh] md:w-[600px] md:h-[700px]"
+                : "chat-widget-shrink w-80 h-96 md:w-[400px] md:h-[500px]"
             }`}
           >
             <div className="bg-blue-600 text-white px-4 py-3 rounded-t-lg flex justify-between items-center">
@@ -215,8 +229,7 @@ export default function Chatbot() {
             <form onSubmit={handleSubmit} className="p-3 border-t">
               <div className="flex items-center">
                 <textarea
-                  value={input}
-                  onChange={handleInputChange}
+                  name="message"
                   placeholder="Type your message..."
                   className="flex-1 h-10 content-center resize-none focus:outline-none"
                   rows={1}
