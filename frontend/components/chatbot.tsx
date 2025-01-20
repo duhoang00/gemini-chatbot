@@ -27,7 +27,6 @@ export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
-  const [hadWarningNoThread, setHadWarningNoThread] = useState(false);
   const [isExpand, setIsExpand] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -46,8 +45,7 @@ export default function Chatbot() {
           localStorage.setItem("gemini-chatbot-userid", user.userId);
           setUser(user);
         }).catch((error) => {
-          console.log(error.response.data);
-          addErrorMessageFromBot();
+          console.error(error.response.data);
         });
       } else {
         await axiosApi.get(
@@ -58,8 +56,7 @@ export default function Chatbot() {
           localStorage.setItem("gemini-chatbot-userid", user.userId);
           setUser(user);
         }).catch((error) => {
-          console.log(error.response.data);
-          addErrorMessageFromBot();
+          console.error(error.response.data);
         });
       }
     };
@@ -84,8 +81,7 @@ export default function Chatbot() {
 
             setActiveThread(thread);
           }).catch((error) => {
-            console.log(error.response.data);
-            addErrorMessageFromBot();
+            console.error(error.response.data);
           });
         } else {
           await axiosApi.get(
@@ -94,7 +90,6 @@ export default function Chatbot() {
             const thread = response.data.thread;
 
             setActiveThread(thread);
-
             thread.messages.map((message: Message) => {
               setMessages((prevMessages) => [
                 ...prevMessages,
@@ -106,8 +101,7 @@ export default function Chatbot() {
               ]);
             });
           }).catch((error) => {
-            console.log(error.response.data);
-            addErrorMessageFromBot();
+            console.error(error.response.data);
           });
         }
       }
@@ -164,13 +158,10 @@ export default function Chatbot() {
           text: sanitizedInput,
         },
       ).catch((error) => {
-        console.log("Error saving thread message", error.response.data);
+        console.error("Error saving thread message", error.response.data);
       });
-    } else if (!hadWarningNoThread) {
-      addErrorMessageFromBot(
-        "No thread found! Your messages might not be saved",
-      );
-      setHadWarningNoThread(true);
+    } else {
+      console.error("No thread found");
     }
 
     // Can still talk to bot even it might not be saved
@@ -200,7 +191,7 @@ export default function Chatbot() {
       });
 
       if (!response.ok) {
-        addErrorMessageFromBot();
+        addErrorMessageFromBot("Error getting data from Gemini");
         throw new Error(`Server error: ${response.status}`);
       }
 
@@ -247,13 +238,11 @@ export default function Chatbot() {
             text: botMessage,
           },
         ).catch((error) => {
-          console.log("Error saving thread message", error.response.data);
+          console.error("Error saving thread message", error.response.data);
         });
       }
     } catch (error) {
-      console.log("Error fetching chatbot response:", error);
-
-      addErrorMessageFromBot("Error sending data to Gemini server");
+      console.error("Error saving thread message:", error);
     }
   };
 
