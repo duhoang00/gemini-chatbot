@@ -279,7 +279,7 @@ export default function Chatbot() {
           <div
             className={`bg-white rounded-lg shadow-xl flex flex-col chat-widget-enter  ${
               isExpand
-                ? "chat-widget-expand w-[90vw] h-[96vh] md:w-[600px] md:h-[700px]"
+                ? "chat-widget-expand w-[90vw] h-[86vh] md:w-[600px] md:h-[700px]"
                 : "chat-widget-shrink w-80 h-96 md:w-[400px] md:h-[500px]"
             }`}
           >
