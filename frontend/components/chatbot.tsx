@@ -4,6 +4,7 @@ import {
   BadgeCheck,
   BotMessageSquare,
   Expand,
+  Loader2,
   Send,
   Shrink,
   X,
@@ -14,6 +15,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { Button } from "@/components/ui/button";
 import { validateInputMessage } from "@/lib/utils";
 import { axiosApi, fetchApi } from "@/lib/api";
 
@@ -25,6 +27,7 @@ import "@/styles/chatbot.css";
 
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [activeThread, setActiveThread] = useState<Thread | null>(null);
   const [isExpand, setIsExpand] = useState(false);
@@ -37,6 +40,7 @@ export default function Chatbot() {
       const storedUserId = localStorage.getItem("gemini-chatbot-userid");
 
       if (!storedUserId) {
+        setIsLoading(true);
         await axiosApi.post(
           "/api/users",
         ).then((response) => {
@@ -46,8 +50,11 @@ export default function Chatbot() {
           setUser(user);
         }).catch((error) => {
           console.error(error.response.data);
+        }).finally(() => {
+          setIsLoading(false);
         });
       } else {
+        setIsLoading(true);
         await axiosApi.get(
           `/api/users/${storedUserId}`,
         ).then((response) => {
@@ -57,6 +64,8 @@ export default function Chatbot() {
           setUser(user);
         }).catch((error) => {
           console.error(error.response.data);
+        }).finally(() => {
+          setIsLoading(false);
         });
       }
     };
@@ -71,6 +80,7 @@ export default function Chatbot() {
     const initializeThread = async () => {
       if (user && !activeThread) {
         if (!user.threads[0]) {
+          setIsLoading(true);
           await axiosApi.post(
             "/api/threads",
             {
@@ -82,8 +92,11 @@ export default function Chatbot() {
             setActiveThread(thread);
           }).catch((error) => {
             console.error(error.response.data);
+          }).finally(() => {
+            setIsLoading(false);
           });
         } else {
+          setIsLoading(true);
           await axiosApi.get(
             `/api/threads/${user.threads[0]}`,
           ).then((response) => {
@@ -102,6 +115,8 @@ export default function Chatbot() {
             });
           }).catch((error) => {
             console.error(error.response.data);
+          }).finally(() => {
+            setIsLoading(false);
           });
         }
       }
@@ -185,9 +200,12 @@ export default function Chatbot() {
         parts: [{ text: sanitizedInput }],
       });
 
+      setIsLoading(true);
       const response = await fetchApi("/api/chat", {
         method: "POST",
         body: JSON.stringify({ input: sanitizedInput, history }),
+      }).finally(() => {
+        setIsLoading(false);
       });
 
       if (!response.ok) {
@@ -352,12 +370,16 @@ export default function Chatbot() {
                   }}
                 >
                 </textarea>
-                <button
+                <Button
                   type="submit"
-                  className="p-2 text-blue-500 rounded-md hover:bg-blue-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  variant="ghost"
+                  className="p-2 text-blue-500 rounded-md hover:bg-blue-600 hover:text-white hover:cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={isLoading}
                 >
-                  <Send size={20} />
-                </button>
+                  {isLoading
+                    ? <Loader2 className="animate-spin" />
+                    : <Send size={20} />}
+                </Button>
               </div>
             </form>
           </div>
