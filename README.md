@@ -69,7 +69,7 @@
 4. Start the Express.js server:
 
     ```bash
-    npm start
+    npm run dev
     ```
 
    The backend server will be running at `http://localhost:${PORT}`.
