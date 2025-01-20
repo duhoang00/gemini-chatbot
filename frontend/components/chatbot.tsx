@@ -15,19 +15,125 @@ import rehypeRaw from "rehype-raw";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { validateInputMessage } from "@/lib/utils";
-import "@/styles/chatbot.css";
+import { axiosApi, fetchApi } from "@/lib/api";
 
-interface Message {
-  id: number;
-  text: string;
-  sender: "user" | "bot";
-}
+import type { Thread } from "@/types/thread";
+import type { User } from "@/types/user";
+import type { Message } from "@/types/message";
+
+import "@/styles/chatbot.css";
 
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [activeThread, setActiveThread] = useState<Thread | null>(null);
+  const [hadWarningNoThread, setHadWarningNoThread] = useState(false);
   const [isExpand, setIsExpand] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Initialize user
+  useEffect(() => {
+    const initializeUser = async () => {
+      const storedUserId = localStorage.getItem("gemini-chatbot-userid");
+
+      if (!storedUserId) {
+        await axiosApi.post(
+          "/api/users",
+        ).then((response) => {
+          const user = response.data.user;
+
+          localStorage.setItem("gemini-chatbot-userid", user.userId);
+          setUser(user);
+        }).catch((error) => {
+          console.log(error.response.data);
+          addErrorMessageFromBot();
+        });
+      } else {
+        await axiosApi.get(
+          `/api/users/${storedUserId}`,
+        ).then((response) => {
+          const user = response.data.user;
+
+          localStorage.setItem("gemini-chatbot-userid", user.userId);
+          setUser(user);
+        }).catch((error) => {
+          console.log(error.response.data);
+          addErrorMessageFromBot();
+        });
+      }
+    };
+
+    if (isOpen) {
+      initializeUser();
+    }
+  }, [isOpen]);
+
+  // Initialize active thread
+  useEffect(() => {
+    const initializeThread = async () => {
+      if (user && !activeThread) {
+        if (!user.threads[0]) {
+          await axiosApi.post(
+            "/api/threads",
+            {
+              userId: user.userId,
+            },
+          ).then((response) => {
+            const thread = response.data.thread;
+
+            setActiveThread(thread);
+          }).catch((error) => {
+            console.log(error.response.data);
+            addErrorMessageFromBot();
+          });
+        } else {
+          await axiosApi.get(
+            `/api/threads/${user.threads[0]}`,
+          ).then((response) => {
+            const thread = response.data.thread;
+
+            setActiveThread(thread);
+
+            thread.messages.map((message: Message) => {
+              setMessages((prevMessages) => [
+                ...prevMessages,
+                {
+                  text: message.text,
+                  role: message.role,
+                  timestamp: message.timestamp,
+                },
+              ]);
+            });
+          }).catch((error) => {
+            console.log(error.response.data);
+            addErrorMessageFromBot();
+          });
+        }
+      }
+    };
+
+    initializeThread();
+  }, [user, activeThread]);
+
+  // Scroll to chat bottom
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [isOpen, messages]);
+
+  const addErrorMessageFromBot = (errorMessage?: string) => {
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      {
+        timestamp: new Date(Date.now()),
+        text: errorMessage ||
+          "Sorry, something went wrong. Please try again later.",
+        role: "bot",
+      },
+    ]);
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -40,34 +146,46 @@ export default function Chatbot() {
 
     form.reset();
 
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      {
-        id: Date.now(),
-        text: userMessage,
-        sender: "user",
-      },
-    ]);
-
     const { isValid, error } = validateInputMessage(userMessage);
     if (!isValid && error) {
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        {
-          id: Date.now(),
-          text: error,
-          sender: "bot",
-        },
-      ]);
-
+      addErrorMessageFromBot(error);
       return;
     }
 
     const sanitizedInput = DOMPurify.sanitize(userMessage);
 
+    // Save message to thread
+    if (activeThread) {
+      await axiosApi.post(
+        "/api/threads/message",
+        {
+          threadId: activeThread._id,
+          role: "user",
+          text: sanitizedInput,
+        },
+      ).catch((error) => {
+        console.log("Error saving thread message", error.response.data);
+      });
+    } else if (!hadWarningNoThread) {
+      addErrorMessageFromBot(
+        "No thread found! Your messages might not be saved",
+      );
+      setHadWarningNoThread(true);
+    }
+
+    // Can still talk to bot even it might not be saved
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      {
+        timestamp: new Date(Date.now()),
+        text: sanitizedInput,
+        role: "user",
+      },
+    ]);
+
     try {
       const history = messages.map((message) => ({
-        role: message.sender === "user" ? "user" : "model",
+        role: message.role === "user" ? "user" : "model",
         parts: [{ text: message.text }],
       }));
 
@@ -76,30 +194,30 @@ export default function Chatbot() {
         parts: [{ text: sanitizedInput }],
       });
 
-      const response = await fetch("http://localhost:8000/api/chat", {
+      const response = await fetchApi("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ input: sanitizedInput, history }),
       });
 
       if (!response.ok) {
+        addErrorMessageFromBot();
         throw new Error(`Server error: ${response.status}`);
       }
 
-      const botMessageId = Date.now();
+      const botMessageId = new Date(Date.now());
+
       setMessages((prevMessages) => [
         ...prevMessages,
         {
-          id: botMessageId,
           text: "",
-          sender: "bot",
+          role: "bot",
+          timestamp: botMessageId,
         },
       ]);
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
+      let botMessage = "";
       let done = false;
 
       while (!done) {
@@ -108,38 +226,40 @@ export default function Chatbot() {
 
         if (value) {
           const chunk = decoder.decode(value);
+          botMessage += chunk;
+
           setMessages((prevMessages) =>
             prevMessages.map((message) =>
-              message.id === botMessageId
+              message.timestamp.getTime() === botMessageId.getTime()
                 ? { ...message, text: message.text + chunk }
                 : message
             )
           );
         }
       }
-    } catch (error) {
-      console.error("Error fetching chatbot response:", error);
 
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        {
-          id: Date.now(),
-          text: "Sorry, something went wrong. Please try again later.",
-          sender: "bot",
-        },
-      ]);
+      if (activeThread && done) {
+        await axiosApi.post(
+          "/api/threads/message",
+          {
+            threadId: activeThread._id,
+            role: "bot",
+            text: botMessage,
+          },
+        ).catch((error) => {
+          console.log("Error saving thread message", error.response.data);
+        });
+      }
+    } catch (error) {
+      console.log("Error fetching chatbot response:", error);
+
+      addErrorMessageFromBot("Error sending data to Gemini server");
     }
   };
 
   const toggleChat = () => {
     setIsOpen((prev) => !prev);
   };
-
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [isOpen, messages]);
 
   const toggleExpand = () => {
     setIsExpand((prev) => !prev);
@@ -178,19 +298,19 @@ export default function Chatbot() {
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.map((message) => (
                 <div
-                  key={message.id}
+                  key={message.timestamp.toString()}
                   className={`flex ${
-                    message.sender === "user" ? "justify-end" : "justify-start"
+                    message.role === "user" ? "justify-end" : "justify-start"
                   } message-enter`}
                 >
                   <div
                     className={`p-3 rounded-lg whitespace-pre-wrap overflow-auto ${
-                      message.sender === "user"
+                      message.role === "user"
                         ? "bg-blue-500 text-white"
                         : "bg-gray-200 text-gray-800"
                     }`}
                   >
-                    {message.sender === "bot"
+                    {message.role === "bot"
                       ? (
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}

@@ -1,9 +1,9 @@
 const express = require("express");
-const { sendMessageStream } = require("../services/gemini");
 const router = express.Router();
+const { sendMessageStream } = require("../services/gemini");
 
 /**
- * POST /api/chat
+ * Send user input and history to Gemini server
  */
 router.post("/", async (req, res) => {
   try {
