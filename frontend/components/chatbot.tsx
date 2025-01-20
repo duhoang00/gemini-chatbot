@@ -230,7 +230,7 @@ export default function Chatbot() {
 
           setMessages((prevMessages) =>
             prevMessages.map((message) =>
-              message.timestamp.getTime() === botMessageId.getTime()
+              new Date(message.timestamp).getTime() === botMessageId.getTime()
                 ? { ...message, text: message.text + chunk }
                 : message
             )

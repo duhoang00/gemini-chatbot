@@ -20,7 +20,7 @@ app.use("/api/threads", threadRoutes);
 app.use("/api/users", userRoutes);
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
 
 module.exports = app;
