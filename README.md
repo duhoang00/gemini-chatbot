@@ -112,8 +112,8 @@
 
 To get a Gemini API key, follow these steps:
 
-1. Visit the [Gemini API Documentation](https://gemini.com/api) and sign up for an account if you haven't already.
-2. Once logged in, go to your [API Settings](https://gemini.com/account/settings/api).
+1. Visit the [Gemini Developer API Documentation](https://ai.google.dev/gemini-api/docs) and sign up for an account if you haven't already.
+2. Once logged in, go to your [API Keys](https://aistudio.google.com/apikey).
 3. Create a new API key and secret.
 4. Copy the API key and secret into the `.env` file for the backend (as described above).
 
