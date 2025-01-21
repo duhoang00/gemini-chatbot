@@ -15,6 +15,12 @@
 - **Code Syntax Highlighting**: Supports displaying code snippets with proper syntax highlighting for better readability.
 - **Smooth Animations**: Enhances user interaction with subtle animations, providing a more dynamic and engaging experience.
 
+## Screenshots
+
+<p align="center">
+  <img src="./assets/chatbot-desktop.jpg" alt="Desktop Chatbot UI" width="500">
+  <img src="./assets/chatbot-mobile.jpg" alt="Mobile Chatbot UI" width="250">
+</p>
 
 ## Gemini Model
 - **gemini-1.5-flash**: The version of the Gemini model used to generate responses.
